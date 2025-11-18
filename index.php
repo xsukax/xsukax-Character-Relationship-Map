@@ -12,12 +12,29 @@ $db->exec('
     )
 ');
 
+// Create index on data column for faster duplicate detection
+$db->exec('CREATE INDEX IF NOT EXISTS idx_data ON character_maps(data)');
+
 // API Handler
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
     
     if ($_POST['action'] === 'save') {
         $data = $_POST['data'];
+        
+        // Optimization: Check if identical data already exists to avoid duplicates
+        // This keeps the database small and returns existing IDs for unchanged maps
+        $stmt = $db->prepare('SELECT id FROM character_maps WHERE data = :data LIMIT 1');
+        $stmt->bindValue(':data', $data, SQLITE3_TEXT);
+        $result = $stmt->execute();
+        
+        if ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            // Data already exists, return existing ID
+            echo json_encode(['success' => true, 'id' => $row['id'], 'existing' => true]);
+            exit;
+        }
+        
+        // Data doesn't exist, create new entry with unique ID
         $id = substr(bin2hex(random_bytes(4)), 0, 8);
         
         $stmt = $db->prepare('INSERT INTO character_maps (id, data, created_at) VALUES (:id, :data, :created_at)');
@@ -26,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $stmt->bindValue(':created_at', time(), SQLITE3_INTEGER);
         $stmt->execute();
         
-        echo json_encode(['success' => true, 'id' => $id]);
+        echo json_encode(['success' => true, 'id' => $id, 'existing' => false]);
         exit;
     }
     
@@ -125,7 +142,8 @@ if ($loadMapId) {
             • Shift+Click: Start connection<br>
             • Click connection: Edit/Delete<br>
             • Escape: Cancel connection<br>
-            • Double-click: Edit character
+            • Double-click: Edit character<br>
+            • 💡 Saving identical maps reuses same ID
         </div>
         <div class="mb-4">
             <button onclick="app.exportAllData()" class="btn btn-secondary w-full mb-2">Export JSON</button>
@@ -233,7 +251,7 @@ if ($loadMapId) {
                     <button onclick="app.copyShareURL()" class="btn btn-primary copy-btn">Copy</button>
                 </div>
                 <div class="text-xs text-gray-400 mb-4">
-                    <strong>✅ Benefits:</strong> Short URL, stored in database, permanent link
+                    <strong>✅ Smart Saving:</strong> If this exact map already exists, we reuse the same ID to keep the database efficient. No duplicates created!
                 </div>
                 <div class="flex gap-2 justify-end">
                     <button onclick="app.closeModal('shareModal')" class="btn btn-secondary">Close</button>
@@ -976,7 +994,12 @@ if ($loadMapId) {
                         
                         document.getElementById('shareURL').textContent = shareUrl;
                         document.getElementById('shareModal').classList.add('active');
-                        this.showToast('Map saved successfully!');
+                        
+                        if (result.existing) {
+                            this.showToast('Using existing saved map (no duplicate created)');
+                        } else {
+                            this.showToast('Map saved successfully with new ID!');
+                        }
                     } else {
                         this.showToast('Failed to save map', true);
                     }
