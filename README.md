@@ -1,4 +1,4 @@
-# Character Relationship Map
+# xsukax Character Relationship Map
 
 A self-hosted, privacy-focused web application for creating, visualizing, and managing character relationship maps. Perfect for writers, game masters, storytellers, and anyone working with complex character networks who needs to map relationships, hierarchies, and connections in an intuitive visual format.
 
@@ -8,7 +8,7 @@ A self-hosted, privacy-focused web application for creating, visualizing, and ma
 
 ## 🎯 Project Overview
 
-Character Relationship Map is a lightweight, single-file PHP application that enables users to create interactive visual maps of character relationships. The application provides an intuitive drag-and-drop interface where characters can be positioned freely on a canvas, connected with labeled relationships, and organized into meaningful networks. Built on a SQLite backend, it offers persistent storage with intelligent duplicate detection, ensuring efficient database utilization without compromising functionality.
+xsukax Character Relationship Map is a lightweight, single-file PHP application that enables users to create interactive visual maps of character relationships. The application provides an intuitive drag-and-drop interface where characters can be positioned freely on a canvas, connected with labeled relationships, and organized into meaningful networks. Built on a SQLite backend, it offers persistent storage with intelligent duplicate detection, ensuring efficient database utilization without compromising functionality.
 
 The tool is designed for creative professionals who need to visualize complex character dynamics in novels, tabletop RPGs, screenplays, video games, or any narrative medium. With features like photo uploads, relationship typing, export capabilities, and shareable links, it serves as both a planning tool and a reference system throughout the creative process.
 
