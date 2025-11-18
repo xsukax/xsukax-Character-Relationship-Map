@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>xsukax Character Relationship Map</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif; background: #0d1117; color: #c9d1d9; overflow: hidden; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.8); z-index: 1000; justify-content: center; align-items: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: #161b22; border: 1px solid #30363d; border-radius: 6px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; }
+        .toast { position: fixed; top: 20px; right: 20px; background: #238636; color: white; padding: 12px 20px; border-radius: 6px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); z-index: 2000; animation: slideIn 0.3s ease; }
+        .toast.error { background: #da3633; }
+        @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .btn { padding: 8px 16px; border-radius: 6px; font-weight: 500; cursor: pointer; transition: all 0.2s; border: none; font-size: 14px; }
+        .btn-primary { background: #238636; color: white; }
+        .btn-primary:hover { background: #2ea043; }
+        .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+        .btn-secondary:hover { background: #30363d; }
+        .btn-danger { background: #da3633; color: white; }
+        .btn-danger:hover { background: #f85149; }
+        .input { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px 12px; color: #c9d1d9; width: 100%; font-size: 14px; }
+        .input:focus { outline: none; border-color: #58a6ff; }
+        .character-node { position: absolute; background: #161b22; border: 2px solid #30363d; border-radius: 12px; padding: 16px; cursor: move; width: 160px; text-align: center; user-select: none; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
+        .character-node:hover { border-color: #58a6ff; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4); }
+        .character-node.selected { border-color: #58a6ff; box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.3), 0 6px 16px rgba(0, 0, 0, 0.4); transform: scale(1.05); }
+        .character-node.connecting { border-color: #f78166; box-shadow: 0 0 0 3px rgba(247, 129, 102, 0.3), 0 6px 16px rgba(0, 0, 0, 0.4); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+        .character-node .photo-wrapper { width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 12px; overflow: hidden; background: #0d1117; border: 3px solid #30363d; display: flex; align-items: center; justify-content: center; }
+        .character-node .photo-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+        .character-node .photo-wrapper.no-photo { font-size: 32px; color: #58a6ff; font-weight: 600; }
+        .character-node .name { font-weight: 600; font-size: 15px; margin-bottom: 4px; line-height: 1.3; word-wrap: break-word; overflow-wrap: break-word; }
+        .character-node .role { font-size: 12px; color: #8b949e; line-height: 1.3; word-wrap: break-word; overflow-wrap: break-word; }
+        #canvas { position: absolute; top: 0; left: 0; pointer-events: auto; }
+        .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 280px; background: #161b22; border-right: 1px solid #30363d; overflow-y: auto; padding: 20px; z-index: 10; }
+        .main-canvas { position: fixed; left: 280px; right: 0; top: 60px; bottom: 0; overflow: hidden; }
+        .toolbar { position: fixed; left: 280px; right: 0; top: 0; height: 60px; background: #161b22; border-bottom: 1px solid #30363d; display: flex; align-items: center; padding: 0 20px; gap: 12px; z-index: 100; }
+        .character-list-item { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 12px; }
+        .character-list-item:hover { border-color: #58a6ff; background: #161b22; }
+        .character-list-item img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid #30363d; }
+        .character-list-item .no-photo { width: 40px; height: 40px; border-radius: 50%; background: #0d1117; border: 2px solid #30363d; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #58a6ff; flex-shrink: 0; font-size: 14px; }
+        .photo-preview { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; margin: 10px auto; display: block; border: 3px solid #30363d; }
+        .connection-hint { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #161b22; border: 2px solid #f78166; border-radius: 8px; padding: 16px 24px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); z-index: 1500; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translate(-50%, 100px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+        .mode-indicator { background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 6px 12px; font-size: 12px; color: #8b949e; }
+        .mode-indicator.active { background: #238636; color: white; border-color: #238636; }
+        .url-box { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 12px; color: #c9d1d9; word-break: break-all; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; }
+        .copy-btn { position: absolute; top: 8px; right: 8px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h1 class="text-xl font-bold mb-4">Character Map</h1>
+        <button onclick="app.openAddCharacterModal()" class="btn btn-primary w-full mb-4">+ Add Character</button>
+        <div class="mb-4 text-xs text-gray-400 p-3 bg-gray-800 rounded-lg">
+            <strong>Quick Tips:</strong><br>
+            • Mouse wheel: Zoom in/out<br>
+            • Drag canvas: Pan view<br>
+            • Shift+Click: Start connection<br>
+            • Click connection: Edit/Delete<br>
+            • Escape: Cancel connection<br>
+            • Double-click: Edit character
+        </div>
+        <div class="mb-4">
+            <button onclick="app.exportAllData()" class="btn btn-secondary w-full mb-2">Export All Data</button>
+            <button onclick="app.importData()" class="btn btn-secondary w-full mb-2">Import Data</button>
+            <button onclick="app.openShareModal()" class="btn btn-secondary w-full mb-2">Share Map</button>
+            <button onclick="app.exportToPNG()" class="btn btn-secondary w-full">Export as PNG</button>
+        </div>
+        <h2 class="text-sm font-semibold mb-2 text-gray-400">CHARACTERS</h2>
+        <div id="characterList"></div>
+    </div>
+
+    <div class="toolbar">
+        <div class="mode-indicator" id="modeIndicator">Shift+Click to connect</div>
+        <div class="mode-indicator" id="zoomIndicator">Zoom: 100%</div>
+        <div class="flex-1"></div>
+        <button onclick="app.cancelConnection()" id="cancelBtn" class="btn btn-secondary" style="display: none;">Cancel Connection</button>
+        <button onclick="app.deleteSelected()" class="btn btn-danger">Delete Selected</button>
+        <button onclick="app.resetView()" class="btn btn-secondary">Reset View</button>
+    </div>
+
+    <div class="main-canvas" id="mainCanvas">
+        <canvas id="canvas"></canvas>
+        <div id="nodesContainer"></div>
+    </div>
+
+    <div id="connectionHint" class="connection-hint" style="display: none;">
+        <div class="text-center">
+            <div class="font-semibold mb-1">Connection Mode Active</div>
+            <div class="text-sm text-gray-400">Click another character to connect</div>
+        </div>
+    </div>
+
+    <!-- Character Modal -->
+    <div id="characterModal" class="modal">
+        <div class="modal-content">
+            <div class="p-6">
+                <h2 class="text-xl font-bold mb-4" id="characterModalTitle">Add Character</h2>
+                <form onsubmit="app.saveCharacter(event)">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Photo</label>
+                        <input type="file" accept="image/*" id="photoInput" class="input" onchange="app.previewPhoto(event)">
+                        <img id="photoPreview" class="photo-preview" style="display: none;">
+                        <div class="text-xs text-gray-400 mt-1">Images will be resized to 200px height</div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Name *</label>
+                        <input type="text" id="nameInput" class="input" required dir="auto">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Role</label>
+                        <input type="text" id="roleInput" class="input" placeholder="e.g., Protagonist, Antagonist" dir="auto">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Description</label>
+                        <textarea id="descriptionInput" class="input" rows="3" dir="auto"></textarea>
+                    </div>
+                    <div class="flex gap-2 justify-end">
+                        <button type="button" onclick="app.closeModal('characterModal')" class="btn btn-secondary">Cancel</button>
+                        <button type="button" onclick="app.exportCharacter()" id="exportCharBtn" class="btn btn-secondary" style="display: none;">Export</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Relationship Modal -->
+    <div id="relationshipModal" class="modal">
+        <div class="modal-content">
+            <div class="p-6">
+                <h2 class="text-xl font-bold mb-4" id="relationshipModalTitle">Create Relationship</h2>
+                <div class="mb-4 p-3 bg-gray-800 rounded-lg">
+                    <div class="text-sm text-gray-400 mb-1">From:</div>
+                    <div class="font-semibold" id="relationshipFrom"></div>
+                    <div class="text-sm text-gray-400 mt-2 mb-1">To:</div>
+                    <div class="font-semibold" id="relationshipTo"></div>
+                </div>
+                <form onsubmit="app.saveRelationship(event)">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Relationship Type *</label>
+                        <input type="text" id="relationshipType" class="input" placeholder="e.g., Friend, Enemy, Family" required dir="auto">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Description</label>
+                        <textarea id="relationshipDesc" class="input" rows="2" dir="auto"></textarea>
+                    </div>
+                    <div class="flex gap-2 justify-end">
+                        <button type="button" onclick="app.closeModal('relationshipModal')" class="btn btn-secondary">Cancel</button>
+                        <button type="button" onclick="app.deleteRelationship()" id="deleteRelBtn" class="btn btn-danger" style="display: none;">Delete</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="shareModal" class="modal">
+        <div class="modal-content">
+            <div class="p-6">
+                <h2 class="text-xl font-bold mb-4">Share Character Map</h2>
+                <p class="text-sm text-gray-400 mb-4">Share this URL to allow others to view and import your character map:</p>
+                <div class="relative mb-4">
+                    <div class="url-box" id="shareURL">Generating URL...</div>
+                    <button onclick="app.copyShareURL()" class="btn btn-primary copy-btn">Copy</button>
+                </div>
+                <div class="text-xs text-gray-400 mb-4">
+                    <strong>Note:</strong> The map data is encoded in the URL. Very long URLs may not work in all browsers.
+                </div>
+                <div class="flex gap-2 justify-end">
+                    <button onclick="app.closeModal('shareModal')" class="btn btn-secondary">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="importFileInput" accept=".json" style="display: none;" onchange="app.handleImport(event)">
+
+    <script>
+        const app = {
+            characters: [],
+            relationships: [],
+            selectedCharacter: null,
+            selectedRelationship: null,
+            connectingFrom: null,
+            draggingNode: null,
+            dragOffset: { x: 0, y: 0 },
+            editingCharacterId: null,
+            editingRelationshipId: null,
+            canvasOffset: { x: 0, y: 0 },
+            isPanning: false,
+            panStart: { x: 0, y: 0 },
+            tempConnection: null,
+            zoomLevel: 1,
+            hoveredRelationship: null,
+            MIN_ZOOM: 0.25,
+            MAX_ZOOM: 3,
+
+            init() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.nodesContainer = document.getElementById('nodesContainer');
+                this.mainCanvas = document.getElementById('mainCanvas');
+                this.mainCanvas.style.cursor = 'grab';
+                
+                this.resizeCanvas();
+                this.setupEventListeners();
+                this.loadFromURL();
+                this.renderCharacterList();
+            },
+
+            resizeCanvas() {
+                this.canvas.width = this.mainCanvas.offsetWidth;
+                this.canvas.height = this.mainCanvas.offsetHeight;
+                this.drawConnections();
+            },
+
+            setupEventListeners() {
+                window.addEventListener('resize', () => this.resizeCanvas());
+                
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.connectingFrom) {
+                        this.cancelConnection();
+                    }
+                });
+
+                this.mainCanvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+                this.mainCanvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                this.mainCanvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                this.mainCanvas.addEventListener('mouseup', () => this.handleMouseUp());
+            },
+
+            handleWheel(e) {
+                e.preventDefault();
+                
+                const rect = this.mainCanvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                const worldX = (mouseX - this.canvasOffset.x) / this.zoomLevel;
+                const worldY = (mouseY - this.canvasOffset.y) / this.zoomLevel;
+                
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                const newZoom = Math.max(this.MIN_ZOOM, Math.min(this.MAX_ZOOM, this.zoomLevel * delta));
+                
+                if (newZoom !== this.zoomLevel) {
+                    this.canvasOffset.x = mouseX - worldX * newZoom;
+                    this.canvasOffset.y = mouseY - worldY * newZoom;
+                    this.zoomLevel = newZoom;
+                    
+                    document.getElementById('zoomIndicator').textContent = `Zoom: ${Math.round(this.zoomLevel * 100)}%`;
+                    this.renderCharacters();
+                }
+            },
+
+            handleMouseMove(e) {
+                if (this.draggingNode) {
+                    const char = this.characters.find(c => c.id === this.draggingNode);
+                    if (char) {
+                        const canvasRect = this.mainCanvas.getBoundingClientRect();
+                        char.position.x = (e.clientX - canvasRect.left - this.canvasOffset.x) / this.zoomLevel - this.dragOffset.x;
+                        char.position.y = (e.clientY - canvasRect.top - this.canvasOffset.y) / this.zoomLevel - this.dragOffset.y;
+                        this.renderCharacters();
+                    }
+                } else if (this.isPanning) {
+                    const dx = e.clientX - this.panStart.x;
+                    const dy = e.clientY - this.panStart.y;
+                    this.canvasOffset.x += dx;
+                    this.canvasOffset.y += dy;
+                    this.panStart.x = e.clientX;
+                    this.panStart.y = e.clientY;
+                    this.renderCharacters();
+                } else if (this.connectingFrom) {
+                    const fromChar = this.characters.find(c => c.id === this.connectingFrom);
+                    if (fromChar) {
+                        const canvasRect = this.canvas.getBoundingClientRect();
+                        const fromX = fromChar.position.x * this.zoomLevel + this.canvasOffset.x + 80 * this.zoomLevel;
+                        const fromY = fromChar.position.y * this.zoomLevel + this.canvasOffset.y + 65 * this.zoomLevel;
+                        this.tempConnection = {
+                            x1: fromX,
+                            y1: fromY,
+                            x2: e.clientX - canvasRect.left,
+                            y2: e.clientY - canvasRect.top
+                        };
+                        this.drawConnections();
+                    }
+                } else {
+                    const canvasRect = this.canvas.getBoundingClientRect();
+                    const mouseX = (e.clientX - canvasRect.left - this.canvasOffset.x) / this.zoomLevel;
+                    const mouseY = (e.clientY - canvasRect.top - this.canvasOffset.y) / this.zoomLevel;
+                    
+                    let found = null;
+                    for (const rel of this.relationships) {
+                        if (rel._bounds) {
+                            const b = rel._bounds;
+                            if (mouseX >= b.x && mouseX <= b.x + b.width &&
+                                mouseY >= b.y && mouseY <= b.y + b.height) {
+                                found = rel.id;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (found !== this.hoveredRelationship) {
+                        this.hoveredRelationship = found;
+                        this.mainCanvas.style.cursor = found ? 'pointer' : 'grab';
+                        this.drawConnections();
+                    }
+                }
+            },
+
+            handleMouseDown(e) {
+                if (e.target === this.mainCanvas || e.target === this.canvas) {
+                    const canvasRect = this.canvas.getBoundingClientRect();
+                    const mouseX = (e.clientX - canvasRect.left - this.canvasOffset.x) / this.zoomLevel;
+                    const mouseY = (e.clientY - canvasRect.top - this.canvasOffset.y) / this.zoomLevel;
+                    
+                    let clickedRel = null;
+                    for (const rel of this.relationships) {
+                        if (rel._bounds) {
+                            const b = rel._bounds;
+                            if (mouseX >= b.x && mouseX <= b.x + b.width &&
+                                mouseY >= b.y && mouseY <= b.y + b.height) {
+                                clickedRel = rel.id;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (clickedRel) {
+                        this.selectedRelationship = clickedRel;
+                        this.drawConnections();
+                        this.openEditRelationshipModal(clickedRel);
+                    } else {
+                        this.isPanning = true;
+                        this.panStart.x = e.clientX;
+                        this.panStart.y = e.clientY;
+                        this.mainCanvas.classList.add('panning');
+                        this.deselectAll();
+                        this.selectedRelationship = null;
+                        this.drawConnections();
+                    }
+                }
+            },
+
+            handleMouseUp() {
+                this.draggingNode = null;
+                this.isPanning = false;
+                this.mainCanvas.classList.remove('panning');
+                this.mainCanvas.style.cursor = this.hoveredRelationship ? 'pointer' : 'grab';
+                this.tempConnection = null;
+                this.drawConnections();
+            },
+
+            handleNodeMouseDown(e, charId) {
+                e.stopPropagation();
+                
+                if (this.connectingFrom && this.connectingFrom !== charId) {
+                    this.openRelationshipModal(this.connectingFrom, charId);
+                    return;
+                }
+                
+                if (e.shiftKey) {
+                    if (this.connectingFrom === charId) {
+                        this.cancelConnection();
+                    } else {
+                        this.startConnection(charId);
+                    }
+                    return;
+                }
+                
+                this.draggingNode = charId;
+                const node = document.getElementById(`node-${charId}`);
+                const rect = node.getBoundingClientRect();
+                this.dragOffset.x = (e.clientX - rect.left) / this.zoomLevel;
+                this.dragOffset.y = (e.clientY - rect.top) / this.zoomLevel;
+                this.selectCharacter(charId);
+            },
+
+            startConnection(charId) {
+                this.connectingFrom = charId;
+                this.selectCharacter(charId);
+                document.getElementById('connectionHint').style.display = 'block';
+                document.getElementById('cancelBtn').style.display = 'block';
+                document.getElementById('modeIndicator').textContent = 'Connection mode active';
+                document.getElementById('modeIndicator').classList.add('active');
+                this.renderCharacters();
+                this.showToast('Click another character to connect');
+            },
+
+            cancelConnection() {
+                this.connectingFrom = null;
+                this.tempConnection = null;
+                document.getElementById('connectionHint').style.display = 'none';
+                document.getElementById('cancelBtn').style.display = 'none';
+                document.getElementById('modeIndicator').textContent = 'Shift+Click to connect';
+                document.getElementById('modeIndicator').classList.remove('active');
+                this.renderCharacters();
+            },
+
+            selectCharacter(id) {
+                this.selectedCharacter = id;
+                this.renderCharacters();
+            },
+
+            deselectAll() {
+                this.selectedCharacter = null;
+                this.selectedRelationship = null;
+                this.renderCharacters();
+            },
+
+            getInitials(name) {
+                const parts = name.trim().split(/\s+/);
+                if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+                return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+            },
+
+            resizeImage(file, maxHeight, callback) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        if (height > maxHeight) {
+                            const ratio = maxHeight / height;
+                            height = maxHeight;
+                            width = width * ratio;
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+                        callback(canvas.toDataURL('image/jpeg', 0.8));
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            },
+
+            previewPhoto(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    this.resizeImage(file, 200, (resizedDataUrl) => {
+                        document.getElementById('photoPreview').src = resizedDataUrl;
+                        document.getElementById('photoPreview').style.display = 'block';
+                    });
+                }
+            },
+
+            openAddCharacterModal() {
+                this.editingCharacterId = null;
+                document.getElementById('characterModalTitle').textContent = 'Add Character';
+                document.getElementById('nameInput').value = '';
+                document.getElementById('roleInput').value = '';
+                document.getElementById('descriptionInput').value = '';
+                document.getElementById('photoInput').value = '';
+                document.getElementById('photoPreview').style.display = 'none';
+                document.getElementById('exportCharBtn').style.display = 'none';
+                document.getElementById('characterModal').classList.add('active');
+            },
+
+            openEditCharacterModal(id) {
+                const char = this.characters.find(c => c.id === id);
+                if (!char) return;
+
+                this.editingCharacterId = id;
+                document.getElementById('characterModalTitle').textContent = 'Edit Character';
+                document.getElementById('nameInput').value = char.name;
+                document.getElementById('roleInput').value = char.role || '';
+                document.getElementById('descriptionInput').value = char.description || '';
+                
+                if (char.photo) {
+                    document.getElementById('photoPreview').src = char.photo;
+                    document.getElementById('photoPreview').style.display = 'block';
+                } else {
+                    document.getElementById('photoPreview').style.display = 'none';
+                }
+                
+                document.getElementById('exportCharBtn').style.display = 'inline-block';
+                document.getElementById('characterModal').classList.add('active');
+            },
+
+            saveCharacter(event) {
+                event.preventDefault();
+                
+                const name = document.getElementById('nameInput').value.trim();
+                const role = document.getElementById('roleInput').value.trim();
+                const description = document.getElementById('descriptionInput').value.trim();
+                const photoPreview = document.getElementById('photoPreview');
+                const photo = photoPreview.style.display !== 'none' ? photoPreview.src : null;
+
+                if (this.editingCharacterId) {
+                    const char = this.characters.find(c => c.id === this.editingCharacterId);
+                    char.name = name;
+                    char.role = role;
+                    char.description = description;
+                    if (photo) char.photo = photo;
+                    this.showToast('Character updated successfully');
+                } else {
+                    const id = Date.now().toString();
+                    const centerX = this.mainCanvas.offsetWidth / 2;
+                    const centerY = this.mainCanvas.offsetHeight / 2;
+                    const position = {
+                        x: (centerX - this.canvasOffset.x) / this.zoomLevel - 80 + Math.random() * 100 - 50,
+                        y: (centerY - this.canvasOffset.y) / this.zoomLevel - 80 + Math.random() * 100 - 50
+                    };
+                    
+                    this.characters.push({ id, name, role, description, photo, position });
+                    this.showToast('Character added successfully');
+                }
+
+                this.closeModal('characterModal');
+                this.renderCharacters();
+                this.renderCharacterList();
+            },
+
+            exportCharacter() {
+                if (!this.editingCharacterId) return;
+                
+                const char = this.characters.find(c => c.id === this.editingCharacterId);
+                const charRelationships = this.relationships.filter(r => 
+                    r.from === this.editingCharacterId || r.to === this.editingCharacterId
+                );
+                
+                const data = { character: char, relationships: charRelationships };
+                const json = JSON.stringify(data, null, 2);
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${char.name.replace(/\s+/g, '-')}-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                this.showToast('Character exported successfully');
+            },
+
+            deleteSelected() {
+                if (!this.selectedCharacter) {
+                    this.showToast('Please select a character first', true);
+                    return;
+                }
+                
+                this.characters = this.characters.filter(c => c.id !== this.selectedCharacter);
+                this.relationships = this.relationships.filter(r => 
+                    r.from !== this.selectedCharacter && r.to !== this.selectedCharacter
+                );
+                
+                this.selectedCharacter = null;
+                this.renderCharacters();
+                this.renderCharacterList();
+                this.showToast('Character deleted successfully');
+            },
+
+            openRelationshipModal(fromId, toId) {
+                const fromChar = this.characters.find(c => c.id === fromId);
+                const toChar = this.characters.find(c => c.id === toId);
+                
+                if (!fromChar || !toChar) return;
+                
+                this.editingRelationshipId = null;
+                document.getElementById('relationshipModalTitle').textContent = 'Create Relationship';
+                document.getElementById('relationshipFrom').textContent = fromChar.name;
+                document.getElementById('relationshipTo').textContent = toChar.name;
+                document.getElementById('relationshipType').value = '';
+                document.getElementById('relationshipDesc').value = '';
+                document.getElementById('deleteRelBtn').style.display = 'none';
+                document.getElementById('relationshipModal').classList.add('active');
+                document.getElementById('relationshipModal').dataset.from = fromId;
+                document.getElementById('relationshipModal').dataset.to = toId;
+            },
+
+            openEditRelationshipModal(relId) {
+                const rel = this.relationships.find(r => r.id === relId);
+                if (!rel) return;
+                
+                const fromChar = this.characters.find(c => c.id === rel.from);
+                const toChar = this.characters.find(c => c.id === rel.to);
+                
+                if (!fromChar || !toChar) return;
+                
+                this.editingRelationshipId = relId;
+                document.getElementById('relationshipModalTitle').textContent = 'Edit Relationship';
+                document.getElementById('relationshipFrom').textContent = fromChar.name;
+                document.getElementById('relationshipTo').textContent = toChar.name;
+                document.getElementById('relationshipType').value = rel.type || '';
+                document.getElementById('relationshipDesc').value = rel.description || '';
+                document.getElementById('deleteRelBtn').style.display = 'inline-block';
+                document.getElementById('relationshipModal').classList.add('active');
+                document.getElementById('relationshipModal').dataset.from = rel.from;
+                document.getElementById('relationshipModal').dataset.to = rel.to;
+            },
+
+            saveRelationship(event) {
+                event.preventDefault();
+                
+                const modal = document.getElementById('relationshipModal');
+                const fromId = modal.dataset.from;
+                const toId = modal.dataset.to;
+                const type = document.getElementById('relationshipType').value.trim();
+                const description = document.getElementById('relationshipDesc').value.trim();
+                
+                if (this.editingRelationshipId) {
+                    const rel = this.relationships.find(r => r.id === this.editingRelationshipId);
+                    rel.type = type;
+                    rel.description = description;
+                    this.showToast('Relationship updated successfully');
+                } else {
+                    this.relationships.push({
+                        id: Date.now().toString(),
+                        from: fromId,
+                        to: toId,
+                        type,
+                        description
+                    });
+                    this.showToast('Relationship created successfully');
+                }
+                
+                this.closeModal('relationshipModal');
+                this.cancelConnection();
+                this.drawConnections();
+            },
+
+            deleteRelationship() {
+                if (!this.editingRelationshipId) return;
+                
+                this.relationships = this.relationships.filter(r => r.id !== this.editingRelationshipId);
+                this.selectedRelationship = null;
+                this.editingRelationshipId = null;
+                
+                this.closeModal('relationshipModal');
+                this.drawConnections();
+                this.showToast('Relationship deleted successfully');
+            },
+
+            closeModal(modalId) {
+                document.getElementById(modalId).classList.remove('active');
+                if (modalId === 'relationshipModal') {
+                    this.editingRelationshipId = null;
+                    this.selectedRelationship = null;
+                    this.drawConnections();
+                }
+            },
+
+            renderCharacters() {
+                this.nodesContainer.innerHTML = '';
+                
+                this.characters.forEach(char => {
+                    const node = document.createElement('div');
+                    node.className = 'character-node';
+                    node.id = `node-${char.id}`;
+                    
+                    const scaledX = char.position.x * this.zoomLevel + this.canvasOffset.x;
+                    const scaledY = char.position.y * this.zoomLevel + this.canvasOffset.y;
+                    
+                    node.style.left = `${scaledX}px`;
+                    node.style.top = `${scaledY}px`;
+                    node.style.transform = `scale(${this.zoomLevel})`;
+                    node.style.transformOrigin = 'top left';
+                    
+                    if (this.connectingFrom === char.id) {
+                        node.classList.add('connecting');
+                    } else if (this.selectedCharacter === char.id) {
+                        node.classList.add('selected');
+                    }
+                    
+                    let html = '<div class="photo-wrapper';
+                    if (!char.photo) {
+                        html += ' no-photo">';
+                        html += this.getInitials(char.name);
+                    } else {
+                        html += '">';
+                        html += `<img src="${char.photo}" alt="${char.name}">`;
+                    }
+                    html += '</div>';
+                    
+                    html += `<div class="name" dir="auto">${char.name}</div>`;
+                    if (char.role) {
+                        html += `<div class="role" dir="auto">${char.role}</div>`;
+                    }
+                    
+                    node.innerHTML = html;
+                    node.addEventListener('mousedown', (e) => this.handleNodeMouseDown(e, char.id));
+                    node.addEventListener('dblclick', () => this.openEditCharacterModal(char.id));
+                    
+                    this.nodesContainer.appendChild(node);
+                });
+
+                this.drawConnections();
+            },
+
+            renderCharacterList() {
+                const list = document.getElementById('characterList');
+                list.innerHTML = '';
+                
+                this.characters.forEach(char => {
+                    const item = document.createElement('div');
+                    item.className = 'character-list-item';
+                    
+                    if (char.photo) {
+                        item.innerHTML += `<img src="${char.photo}" alt="${char.name}">`;
+                    } else {
+                        item.innerHTML += `<div class="no-photo">${this.getInitials(char.name)}</div>`;
+                    }
+                    
+                    let textHtml = `<div class="flex-1"><strong dir="auto">${char.name}</strong>`;
+                    if (char.role) {
+                        textHtml += `<br><span class="text-xs text-gray-400" dir="auto">${char.role}</span>`;
+                    }
+                    textHtml += `</div>`;
+                    item.innerHTML += textHtml;
+                    
+                    item.onclick = () => this.openEditCharacterModal(char.id);
+                    list.appendChild(item);
+                });
+            },
+
+            drawConnections() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.ctx.save();
+                this.ctx.translate(this.canvasOffset.x, this.canvasOffset.y);
+                this.ctx.scale(this.zoomLevel, this.zoomLevel);
+                
+                this.relationships.forEach(rel => {
+                    const fromChar = this.characters.find(c => c.id === rel.from);
+                    const toChar = this.characters.find(c => c.id === rel.to);
+                    
+                    if (!fromChar || !toChar) return;
+                    
+                    const fromX = fromChar.position.x + 80;
+                    const fromY = fromChar.position.y + 65;
+                    const toX = toChar.position.x + 80;
+                    const toY = toChar.position.y + 65;
+                    
+                    const isHovered = this.hoveredRelationship === rel.id;
+                    const isSelected = this.selectedRelationship === rel.id;
+                    
+                    this.ctx.strokeStyle = isSelected ? '#f78166' : (isHovered ? '#79c0ff' : '#58a6ff');
+                    this.ctx.lineWidth = isSelected ? 3 : (isHovered ? 2.5 : 2);
+                    this.ctx.setLineDash([]);
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(fromX, fromY);
+                    this.ctx.lineTo(toX, toY);
+                    this.ctx.stroke();
+                    
+                    const angle = Math.atan2(toY - fromY, toX - fromX);
+                    const arrowSize = 10;
+                    this.ctx.fillStyle = isSelected ? '#f78166' : (isHovered ? '#79c0ff' : '#58a6ff');
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(toX, toY);
+                    this.ctx.lineTo(toX - arrowSize * Math.cos(angle - Math.PI / 6), toY - arrowSize * Math.sin(angle - Math.PI / 6));
+                    this.ctx.lineTo(toX - arrowSize * Math.cos(angle + Math.PI / 6), toY - arrowSize * Math.sin(angle + Math.PI / 6));
+                    this.ctx.closePath();
+                    this.ctx.fill();
+                    
+                    const midX = (fromX + toX) / 2;
+                    const midY = (fromY + toY) / 2;
+                    
+                    this.ctx.font = '12px -apple-system, sans-serif';
+                    const textWidth = this.ctx.measureText(rel.type).width;
+                    const padding = 8;
+                    const rectWidth = textWidth + padding * 2;
+                    const rectHeight = 24;
+                    
+                    this.ctx.fillStyle = isSelected ? '#1c2128' : '#161b22';
+                    this.ctx.fillRect(midX - rectWidth / 2, midY - rectHeight / 2, rectWidth, rectHeight);
+                    this.ctx.strokeStyle = isSelected ? '#f78166' : (isHovered ? '#79c0ff' : '#30363d');
+                    this.ctx.lineWidth = isSelected ? 2 : 1;
+                    this.ctx.strokeRect(midX - rectWidth / 2, midY - rectHeight / 2, rectWidth, rectHeight);
+                    
+                    this.ctx.fillStyle = '#c9d1d9';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(rel.type, midX, midY);
+                    
+                    rel._bounds = {
+                        x: midX - rectWidth / 2,
+                        y: midY - rectHeight / 2,
+                        width: rectWidth,
+                        height: rectHeight
+                    };
+                });
+                
+                if (this.tempConnection) {
+                    this.ctx.restore();
+                    this.ctx.strokeStyle = '#f78166';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.setLineDash([5, 5]);
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(this.tempConnection.x1, this.tempConnection.y1);
+                    this.ctx.lineTo(this.tempConnection.x2, this.tempConnection.y2);
+                    this.ctx.stroke();
+                } else {
+                    this.ctx.restore();
+                }
+            },
+
+            resetView() {
+                this.canvasOffset = { x: 0, y: 0 };
+                this.zoomLevel = 1;
+                document.getElementById('zoomIndicator').textContent = 'Zoom: 100%';
+                this.renderCharacters();
+                this.showToast('View reset to default');
+            },
+
+            exportAllData() {
+                const data = { characters: this.characters, relationships: this.relationships };
+                const json = JSON.stringify(data, null, 2);
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `character-map-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                this.showToast('Data exported successfully');
+            },
+
+            importData() {
+                document.getElementById('importFileInput').click();
+            },
+
+            handleImport(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        
+                        if (data.characters && data.relationships) {
+                            this.characters = data.characters;
+                            this.relationships = data.relationships;
+                            this.showToast('Map data imported successfully');
+                        } else if (data.character) {
+                            const newId = Date.now().toString();
+                            const char = { ...data.character, id: newId };
+                            this.characters.push(char);
+                            
+                            if (data.relationships) {
+                                data.relationships.forEach(rel => {
+                                    const newRel = { ...rel, id: Date.now().toString() + Math.random() };
+                                    if (rel.from === data.character.id) newRel.from = newId;
+                                    if (rel.to === data.character.id) newRel.to = newId;
+                                    this.relationships.push(newRel);
+                                });
+                            }
+                            
+                            this.showToast('Character imported successfully');
+                        }
+                        
+                        this.renderCharacters();
+                        this.renderCharacterList();
+                    } catch (error) {
+                        this.showToast('Invalid JSON file format', true);
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            },
+
+            openShareModal() {
+                document.getElementById('shareModal').classList.add('active');
+                
+                const data = { characters: this.characters, relationships: this.relationships };
+                const json = JSON.stringify(data);
+                const base64 = btoa(unescape(encodeURIComponent(json)));
+                
+                let baseUrl;
+                if (window.location.protocol === 'file:') {
+                    baseUrl = window.location.href.split('?')[0];
+                } else {
+                    baseUrl = `${window.location.origin}${window.location.pathname}`;
+                }
+                
+                const url = `${baseUrl}?map=${base64}`;
+                document.getElementById('shareURL').textContent = url;
+            },
+
+            copyShareURL() {
+                const urlText = document.getElementById('shareURL').textContent;
+                navigator.clipboard.writeText(urlText).then(() => {
+                    this.showToast('URL copied to clipboard');
+                }).catch(() => {
+                    this.showToast('Failed to copy URL', true);
+                });
+            },
+
+            loadFromURL() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const mapData = urlParams.get('map');
+                
+                if (mapData) {
+                    try {
+                        const decodedData = atob(mapData);
+                        const data = JSON.parse(decodedData);
+                        
+                        if (data.characters && data.relationships) {
+                            this.characters = data.characters;
+                            this.relationships = data.relationships;
+                            this.renderCharacters();
+                            this.renderCharacterList();
+                            this.showToast('Map loaded from shared URL');
+                        }
+                    } catch (error) {
+                        this.showToast('Failed to load map from URL', true);
+                    }
+                }
+            },
+
+            wrapText(ctx, text, maxWidth) {
+                const words = text.split(' ');
+                const lines = [];
+                let currentLine = words[0];
+                
+                for (let i = 1; i < words.length; i++) {
+                    const testLine = currentLine + ' ' + words[i];
+                    const metrics = ctx.measureText(testLine);
+                    
+                    if (metrics.width > maxWidth) {
+                        lines.push(currentLine);
+                        currentLine = words[i];
+                    } else {
+                        currentLine = testLine;
+                    }
+                }
+                lines.push(currentLine);
+                return lines;
+            },
+
+            exportToPNG() {
+                this.showToast('Preparing PNG export...');
+                
+                const tempCtx = document.createElement('canvas').getContext('2d');
+                const nodeHeights = {};
+                
+                this.characters.forEach(char => {
+                    tempCtx.font = '600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                    const nameLines = this.wrapText(tempCtx, char.name, 140);
+                    const nameHeight = nameLines.length * 20;
+                    
+                    let roleHeight = 0;
+                    if (char.role) {
+                        tempCtx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                        const roleLines = this.wrapText(tempCtx, char.role, 140);
+                        roleHeight = roleLines.length * 16;
+                    }
+                    
+                    nodeHeights[char.id] = 16 + 80 + 12 + nameHeight + (char.role ? 4 + roleHeight : 0) + 16;
+                });
+                
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                
+                this.characters.forEach(char => {
+                    const x = char.position.x;
+                    const y = char.position.y;
+                    minX = Math.min(minX, x);
+                    minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x + 160);
+                    maxY = Math.max(maxY, y + nodeHeights[char.id]);
+                });
+                
+                const padding = 50;
+                const scale = 3;
+                const width = (maxX - minX + padding * 2) * scale;
+                const height = (maxY - minY + padding * 2) * scale;
+                
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = width;
+                exportCanvas.height = height;
+                const ctx = exportCanvas.getContext('2d');
+                
+                ctx.scale(scale, scale);
+                ctx.clearRect(0, 0, width, height);
+                
+                const loadImagePromises = this.characters.map(char => {
+                    if (char.photo) {
+                        return new Promise((resolve) => {
+                            const img = new Image();
+                            img.crossOrigin = 'anonymous';
+                            img.onload = () => resolve({ id: char.id, img });
+                            img.onerror = () => resolve({ id: char.id, img: null });
+                            img.src = char.photo;
+                        });
+                    }
+                    return Promise.resolve({ id: char.id, img: null });
+                });
+                
+                Promise.all(loadImagePromises).then(loadedImages => {
+                    const imageMap = {};
+                    loadedImages.forEach(item => {
+                        imageMap[item.id] = item.img;
+                    });
+                    
+                    this.relationships.forEach(rel => {
+                        const fromChar = this.characters.find(c => c.id === rel.from);
+                        const toChar = this.characters.find(c => c.id === rel.to);
+                        
+                        if (!fromChar || !toChar) return;
+                        
+                        const fromX = fromChar.position.x - minX + padding + 80;
+                        const fromY = fromChar.position.y - minY + padding + 65;
+                        const toX = toChar.position.x - minX + padding + 80;
+                        const toY = toChar.position.y - minY + padding + 65;
+                        
+                        ctx.strokeStyle = '#58a6ff';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(fromX, fromY);
+                        ctx.lineTo(toX, toY);
+                        ctx.stroke();
+                        
+                        const angle = Math.atan2(toY - fromY, toX - fromX);
+                        const arrowSize = 10;
+                        ctx.fillStyle = '#58a6ff';
+                        ctx.beginPath();
+                        ctx.moveTo(toX, toY);
+                        ctx.lineTo(toX - arrowSize * Math.cos(angle - Math.PI / 6), toY - arrowSize * Math.sin(angle - Math.PI / 6));
+                        ctx.lineTo(toX - arrowSize * Math.cos(angle + Math.PI / 6), toY - arrowSize * Math.sin(angle + Math.PI / 6));
+                        ctx.closePath();
+                        ctx.fill();
+                        
+                        const midX = (fromX + toX) / 2;
+                        const midY = (fromY + toY) / 2;
+                        
+                        ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                        const textWidth = ctx.measureText(rel.type).width;
+                        const rectPadding = 8;
+                        const rectWidth = textWidth + rectPadding * 2;
+                        const rectHeight = 24;
+                        
+                        ctx.fillStyle = '#161b22';
+                        ctx.fillRect(midX - rectWidth / 2, midY - rectHeight / 2, rectWidth, rectHeight);
+                        ctx.strokeStyle = '#30363d';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(midX - rectWidth / 2, midY - rectHeight / 2, rectWidth, rectHeight);
+                        
+                        ctx.fillStyle = '#c9d1d9';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(rel.type, midX, midY);
+                    });
+                    
+                    this.characters.forEach(char => {
+                        const x = char.position.x - minX + padding;
+                        const y = char.position.y - minY + padding;
+                        
+                        ctx.font = '600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                        const nameLines = this.wrapText(ctx, char.name, 140);
+                        
+                        let roleLines = [];
+                        if (char.role) {
+                            ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                            roleLines = this.wrapText(ctx, char.role, 140);
+                        }
+                        
+                        const nodeHeight = nodeHeights[char.id];
+                        
+                        ctx.fillStyle = '#161b22';
+                        ctx.strokeStyle = '#30363d';
+                        ctx.lineWidth = 2;
+                        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                        ctx.shadowBlur = 12;
+                        ctx.shadowOffsetY = 4;
+                        
+                        ctx.beginPath();
+                        ctx.roundRect(x, y, 160, nodeHeight, 12);
+                        ctx.fill();
+                        ctx.shadowColor = 'transparent';
+                        ctx.shadowBlur = 0;
+                        ctx.shadowOffsetY = 0;
+                        ctx.stroke();
+                        
+                        const centerX = x + 80;
+                        const photoY = y + 16;
+                        const photoCenterY = photoY + 40;
+                        const photoRadius = 40;
+                        
+                        ctx.fillStyle = '#0d1117';
+                        ctx.strokeStyle = '#30363d';
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.arc(centerX, photoCenterY, photoRadius, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+                        
+                        if (char.photo && imageMap[char.id]) {
+                            const img = imageMap[char.id];
+                            
+                            ctx.save();
+                            ctx.beginPath();
+                            ctx.arc(centerX, photoCenterY, photoRadius, 0, Math.PI * 2);
+                            ctx.closePath();
+                            ctx.clip();
+                            
+                            const imgAspect = img.width / img.height;
+                            let drawWidth, drawHeight, drawX, drawY;
+                            
+                            if (imgAspect > 1) {
+                                drawHeight = photoRadius * 2;
+                                drawWidth = drawHeight * imgAspect;
+                                drawX = centerX - drawWidth / 2;
+                                drawY = photoCenterY - photoRadius;
+                            } else {
+                                drawWidth = photoRadius * 2;
+                                drawHeight = drawWidth / imgAspect;
+                                drawX = centerX - photoRadius;
+                                drawY = photoCenterY - drawHeight / 2;
+                            }
+                            
+                            ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+                            ctx.restore();
+                            
+                            ctx.strokeStyle = '#30363d';
+                            ctx.lineWidth = 3;
+                            ctx.beginPath();
+                            ctx.arc(centerX, photoCenterY, photoRadius, 0, Math.PI * 2);
+                            ctx.stroke();
+                        } else {
+                            ctx.fillStyle = '#58a6ff';
+                            ctx.font = '600 32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(this.getInitials(char.name), centerX, photoCenterY);
+                        }
+                        
+                        let textY = photoY + 92;
+                        
+                        ctx.fillStyle = '#c9d1d9';
+                        ctx.font = '600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'top';
+                        
+                        nameLines.forEach((line, index) => {
+                            ctx.fillText(line, centerX, textY + (index * 20));
+                        });
+                        textY += nameLines.length * 20 + 4;
+                        
+                        if (char.role) {
+                            ctx.fillStyle = '#8b949e';
+                            ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                            
+                            roleLines.forEach((line, index) => {
+                                ctx.fillText(line, centerX, textY + (index * 16));
+                            });
+                        }
+                    });
+                    
+                    exportCanvas.toBlob((blob) => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `character-map-${Date.now()}.png`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        this.showToast('PNG exported successfully');
+                    }, 'image/png');
+                });
+            },
+
+            showToast(message, isError = false) {
+                const toast = document.createElement('div');
+                toast.className = `toast ${isError ? 'error' : ''}`;
+                toast.textContent = message;
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.remove();
+                }, 3000);
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => app.init());
+    </script>
+</body>
+</html>
