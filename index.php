@@ -1,3 +1,65 @@
+<?php
+// Database setup
+$db_file = 'map.db';
+$db = new SQLite3($db_file);
+
+// Create table if not exists
+$db->exec('
+    CREATE TABLE IF NOT EXISTS character_maps (
+        id TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+    )
+');
+
+// API Handler
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    header('Content-Type: application/json');
+    
+    if ($_POST['action'] === 'save') {
+        $data = $_POST['data'];
+        $id = substr(bin2hex(random_bytes(4)), 0, 8);
+        
+        $stmt = $db->prepare('INSERT INTO character_maps (id, data, created_at) VALUES (:id, :data, :created_at)');
+        $stmt->bindValue(':id', $id, SQLITE3_TEXT);
+        $stmt->bindValue(':data', $data, SQLITE3_TEXT);
+        $stmt->bindValue(':created_at', time(), SQLITE3_INTEGER);
+        $stmt->execute();
+        
+        echo json_encode(['success' => true, 'id' => $id]);
+        exit;
+    }
+    
+    if ($_POST['action'] === 'load') {
+        $id = $_POST['id'];
+        
+        $stmt = $db->prepare('SELECT data FROM character_maps WHERE id = :id');
+        $stmt->bindValue(':id', $id, SQLITE3_TEXT);
+        $result = $stmt->execute();
+        
+        if ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            echo json_encode(['success' => true, 'data' => $row['data']]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Map not found']);
+        }
+        exit;
+    }
+}
+
+// Load map data if ID is provided
+$loadMapId = isset($_GET['id']) ? $_GET['id'] : null;
+$loadMapData = null;
+
+if ($loadMapId) {
+    $stmt = $db->prepare('SELECT data FROM character_maps WHERE id = :id');
+    $stmt->bindValue(':id', $loadMapId, SQLITE3_TEXT);
+    $result = $stmt->execute();
+    
+    if ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+        $loadMapData = $row['data'];
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -46,8 +108,10 @@
         @keyframes slideUp { from { transform: translate(-50%, 100px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
         .mode-indicator { background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 6px 12px; font-size: 12px; color: #8b949e; }
         .mode-indicator.active { background: #238636; color: white; border-color: #238636; }
-        .url-box { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 12px; color: #c9d1d9; word-break: break-all; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; }
+        .url-box { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 12px; color: #c9d1d9; word-break: break-all; font-family: monospace; font-size: 14px; max-height: 200px; overflow-y: auto; }
         .copy-btn { position: absolute; top: 8px; right: 8px; }
+        .spinner { border: 3px solid #30363d; border-top: 3px solid #58a6ff; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; margin-left: 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -64,9 +128,9 @@
             • Double-click: Edit character
         </div>
         <div class="mb-4">
-            <button onclick="app.exportAllData()" class="btn btn-secondary w-full mb-2">Export All Data</button>
-            <button onclick="app.importData()" class="btn btn-secondary w-full mb-2">Import Data</button>
-            <button onclick="app.openShareModal()" class="btn btn-secondary w-full mb-2">Share Map</button>
+            <button onclick="app.exportAllData()" class="btn btn-secondary w-full mb-2">Export JSON</button>
+            <button onclick="app.importData()" class="btn btn-secondary w-full mb-2">Import JSON</button>
+            <button onclick="app.saveAndShare()" class="btn btn-secondary w-full mb-2">💾 Save & Share</button>
             <button onclick="app.exportToPNG()" class="btn btn-secondary w-full">Export as PNG</button>
         </div>
         <h2 class="text-sm font-semibold mb-2 text-gray-400">CHARACTERS</h2>
@@ -162,14 +226,14 @@
     <div id="shareModal" class="modal">
         <div class="modal-content">
             <div class="p-6">
-                <h2 class="text-xl font-bold mb-4">Share Character Map</h2>
-                <p class="text-sm text-gray-400 mb-4">Share this URL to allow others to view and import your character map:</p>
+                <h2 class="text-xl font-bold mb-4">Shareable Link</h2>
+                <p class="text-sm text-gray-400 mb-4">Your map has been saved! Share this short link:</p>
                 <div class="relative mb-4">
-                    <div class="url-box" id="shareURL">Generating URL...</div>
+                    <div class="url-box" id="shareURL">Generating link...</div>
                     <button onclick="app.copyShareURL()" class="btn btn-primary copy-btn">Copy</button>
                 </div>
                 <div class="text-xs text-gray-400 mb-4">
-                    <strong>Note:</strong> The map data is encoded in the URL. Very long URLs may not work in all browsers.
+                    <strong>✅ Benefits:</strong> Short URL, stored in database, permanent link
                 </div>
                 <div class="flex gap-2 justify-end">
                     <button onclick="app.closeModal('shareModal')" class="btn btn-secondary">Close</button>
@@ -179,6 +243,12 @@
     </div>
 
     <input type="file" id="importFileInput" accept=".json" style="display: none;" onchange="app.handleImport(event)">
+
+    <?php if ($loadMapData): ?>
+    <script>
+        window.PRELOADED_MAP_DATA = <?php echo $loadMapData; ?>;
+    </script>
+    <?php endif; ?>
 
     <script>
         const app = {
@@ -209,8 +279,18 @@
                 
                 this.resizeCanvas();
                 this.setupEventListeners();
-                this.loadFromURL();
+                this.loadPreloadedData();
                 this.renderCharacterList();
+            },
+
+            loadPreloadedData() {
+                if (window.PRELOADED_MAP_DATA) {
+                    this.characters = window.PRELOADED_MAP_DATA.characters || [];
+                    this.relationships = window.PRELOADED_MAP_DATA.relationships || [];
+                    this.renderCharacters();
+                    this.renderCharacterList();
+                    this.showToast('Map loaded successfully');
+                }
             },
 
             resizeCanvas() {
@@ -822,7 +902,7 @@
                 a.download = `character-map-${Date.now()}.json`;
                 a.click();
                 URL.revokeObjectURL(url);
-                this.showToast('Data exported successfully');
+                this.showToast('JSON file exported successfully');
             },
 
             importData() {
@@ -869,53 +949,50 @@
                 event.target.value = '';
             },
 
-            openShareModal() {
-                document.getElementById('shareModal').classList.add('active');
-                
+            async saveAndShare() {
+                if (this.characters.length === 0) {
+                    this.showToast('Please add at least one character first', true);
+                    return;
+                }
+
                 const data = { characters: this.characters, relationships: this.relationships };
                 const json = JSON.stringify(data);
-                const base64 = btoa(unescape(encodeURIComponent(json)));
-                
-                let baseUrl;
-                if (window.location.protocol === 'file:') {
-                    baseUrl = window.location.href.split('?')[0];
-                } else {
-                    baseUrl = `${window.location.origin}${window.location.pathname}`;
+
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'save');
+                    formData.append('data', json);
+
+                    const response = await fetch('', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        const baseUrl = window.location.href.split('?')[0];
+                        const shareUrl = `${baseUrl}?id=${result.id}`;
+                        
+                        document.getElementById('shareURL').textContent = shareUrl;
+                        document.getElementById('shareModal').classList.add('active');
+                        this.showToast('Map saved successfully!');
+                    } else {
+                        this.showToast('Failed to save map', true);
+                    }
+                } catch (error) {
+                    console.error('Save error:', error);
+                    this.showToast('Error saving map to database', true);
                 }
-                
-                const url = `${baseUrl}?map=${base64}`;
-                document.getElementById('shareURL').textContent = url;
             },
 
             copyShareURL() {
                 const urlText = document.getElementById('shareURL').textContent;
                 navigator.clipboard.writeText(urlText).then(() => {
-                    this.showToast('URL copied to clipboard');
+                    this.showToast('URL copied to clipboard!');
                 }).catch(() => {
                     this.showToast('Failed to copy URL', true);
                 });
-            },
-
-            loadFromURL() {
-                const urlParams = new URLSearchParams(window.location.search);
-                const mapData = urlParams.get('map');
-                
-                if (mapData) {
-                    try {
-                        const decodedData = atob(mapData);
-                        const data = JSON.parse(decodedData);
-                        
-                        if (data.characters && data.relationships) {
-                            this.characters = data.characters;
-                            this.relationships = data.relationships;
-                            this.renderCharacters();
-                            this.renderCharacterList();
-                            this.showToast('Map loaded from shared URL');
-                        }
-                    } catch (error) {
-                        this.showToast('Failed to load map from URL', true);
-                    }
-                }
             },
 
             wrapText(ctx, text, maxWidth) {
